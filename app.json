@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "react-native-page-view",
-    "slug": "react-native-page-view",
+    "name": "react-native-scrollable-page-view",
+    "slug": "react-native-scrollable-page-view",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
