@@ -1,11 +1,15 @@
 import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { PageView } from "./src";
 
 export default function App() {
+  const [currentPage, setCurrentPage] = useState(0);
   return (
     <View style={styles.container}>
       <PageView
+        currentPage={currentPage}
+        onChangePage={setCurrentPage}
         style={{
           width: 800,
           maxHeight: 600,

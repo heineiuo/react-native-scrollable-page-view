@@ -16,7 +16,11 @@ type PageViewMethods = {
 
 export const PageView = forwardRef<
   PageViewMethods,
-  ScrollViewProps & { children: JSX.Element | JSX.Element[] }
+  ScrollViewProps & {
+    currentPage?: number;
+    onChangePage?: (page: number) => void;
+    children: JSX.Element | JSX.Element[];
+  }
 >(function PageView({ scrollEnabled, style, children }, ref) {
   const [ready, setReady] = useState(false);
   const [width, setWidth] = useState(0);
@@ -25,6 +29,7 @@ export const PageView = forwardRef<
   const contentOffsetX = useRef(0);
 
   const animating = useRef(false);
+  const paning = useRef(false);
   const onScrollTimer = useRef<any>();
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -60,8 +65,13 @@ export const PageView = forwardRef<
   }, [children]);
 
   const calculatePosition = useCallback(() => {
+    if (paning.current) {
+      onScrollTimer.current = setTimeout(calculatePosition, 20);
+      return;
+    }
+
     const x = contentOffsetX.current;
-    console.log("calculatePosition calculate", x);
+    // console.log("calculatePosition calculate", x);
 
     const halfWidth = width / 2;
     let index = 0;
@@ -88,21 +98,18 @@ export const PageView = forwardRef<
   const onScroll = useCallback(
     (event) => {
       contentOffsetX.current = event.nativeEvent.contentOffset.x;
-      console.log("calculatePosition onScroll", contentOffsetX.current);
-      // if (isTouchable) {
-      //   return;
-      // }
-
-      if (onScrollTimer.current) {
-        console.log("calculatePosition clear");
-        clearTimeout(onScrollTimer.current);
+      if (isTouchable) {
+        if (onScrollTimer.current) {
+          // console.log("calculatePosition clear");
+          clearTimeout(onScrollTimer.current);
+        }
+        onScrollTimer.current = setTimeout(
+          () => {
+            calculatePosition();
+          },
+          animating.current ? 100 : 20
+        );
       }
-      onScrollTimer.current = setTimeout(
-        () => {
-          calculatePosition();
-        },
-        animating.current ? 100 : 20
-      );
     },
     [isTouchable, calculatePosition]
   );
@@ -133,11 +140,41 @@ export const PageView = forwardRef<
     );
   }, [children, width, height, ready]);
 
-  useEffect(() => {}, []);
+  useEffect(() => {
+    if (!isTouchable) {
+      const addEventListener = (scrollViewRef.current as unknown as any)
+        ?.addEventListener;
+      const removeEventListener = (scrollViewRef.current as unknown as any)
+        ?.removeEventListener;
+      if (addEventListener && removeEventListener) {
+        function onMouseUp() {
+          console.log("onMouseUp", "onMouseUp");
+          calculatePosition();
+        }
+
+        addEventListener("mouseup", onMouseUp);
+        return () => {
+          removeEventListener("mouseup", onMouseUp);
+        };
+      }
+    }
+  }, [calculatePosition]);
 
   return (
     <ScrollView
       scrollEventThrottle={16}
+      onResponderGrant={() => {
+        console.log("onResponderGrant");
+        paning.current = true;
+      }}
+      onResponderMove={() => {
+        console.log("onResponderMove");
+        paning.current = true;
+      }}
+      onResponderRelease={() => {
+        console.log("onResponderRelease");
+        paning.current = false;
+      }}
       onScroll={onScroll}
       ref={scrollViewRef}
       scrollEnabled={scrollEnabled}
