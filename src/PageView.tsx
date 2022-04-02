@@ -17,18 +17,21 @@ type PageViewMethods = {
 export const PageView = forwardRef<
   PageViewMethods,
   ScrollViewProps & {
+    delay?: number;
     currentPage?: number;
     onChangePage?: (page: number) => void;
     children: JSX.Element | JSX.Element[];
   }
->(function PageView({ scrollEnabled, style, children }, ref) {
+>(function PageView(
+  { delay = 100, onChangePage, currentPage, scrollEnabled, style, children },
+  ref
+) {
   const [ready, setReady] = useState(false);
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
 
   const contentOffsetX = useRef(0);
 
-  const animating = useRef(false);
   const paning = useRef(false);
   const onScrollTimer = useRef<any>();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -45,7 +48,6 @@ export const PageView = forwardRef<
 
   const onLayout = useCallback((event) => {
     const { layout } = event.nativeEvent;
-    // console.log("layout", layout);
     setWidth(layout.width);
     setHeight(layout.height);
     setReady(true);
@@ -64,15 +66,13 @@ export const PageView = forwardRef<
     return Children.count(children);
   }, [children]);
 
-  const calculatePosition = useCallback(() => {
+  const animate = useCallback(() => {
     if (paning.current) {
-      onScrollTimer.current = setTimeout(calculatePosition, 20);
+      onScrollTimer.current = setTimeout(animate, 16);
       return;
     }
 
     const x = contentOffsetX.current;
-    // console.log("calculatePosition calculate", x);
-
     const halfWidth = width / 2;
     let index = 0;
     let left = 0;
@@ -87,31 +87,24 @@ export const PageView = forwardRef<
       left += width;
     }
 
-    animating.current = true;
     scrollViewRef.current?.scrollTo({ x: left, animated: true });
-  }, [width, childCount]);
 
-  const onScrollAnimationEnd = useCallback(() => {
-    animating.current = false;
-  }, []);
+    if (onChangePage) {
+      onChangePage(index);
+    }
+  }, [width, childCount, onChangePage]);
 
   const onScroll = useCallback(
     (event) => {
       contentOffsetX.current = event.nativeEvent.contentOffset.x;
-      if (isTouchable) {
-        if (onScrollTimer.current) {
-          // console.log("calculatePosition clear");
-          clearTimeout(onScrollTimer.current);
-        }
-        onScrollTimer.current = setTimeout(
-          () => {
-            calculatePosition();
-          },
-          animating.current ? 100 : 20
-        );
+      if (onScrollTimer.current) {
+        clearTimeout(onScrollTimer.current);
       }
+      onScrollTimer.current = setTimeout(() => {
+        animate();
+      }, delay);
     },
-    [isTouchable, calculatePosition]
+    [isTouchable, animate]
   );
 
   const childs = useMemo(() => {
@@ -141,38 +134,50 @@ export const PageView = forwardRef<
   }, [children, width, height, ready]);
 
   useEffect(() => {
+    if (
+      ready &&
+      typeof currentPage === "number" &&
+      currentPage > -1 &&
+      currentPage < childCount
+    ) {
+      contentOffsetX.current = width * currentPage;
+      animate();
+    }
+  }, [ready, currentPage, childCount, width]);
+
+  useEffect(() => {
+    const onMouseDown = () => {
+      paning.current = true;
+    };
+    const onMouseUp = () => {
+      paning.current = false;
+    };
     if (!isTouchable) {
       const addEventListener = (scrollViewRef.current as unknown as any)
         ?.addEventListener;
       const removeEventListener = (scrollViewRef.current as unknown as any)
         ?.removeEventListener;
       if (addEventListener && removeEventListener) {
-        function onMouseUp() {
-          console.log("onMouseUp", "onMouseUp");
-          calculatePosition();
-        }
-
         addEventListener("mouseup", onMouseUp);
+        addEventListener("mousedown", onMouseDown);
         return () => {
           removeEventListener("mouseup", onMouseUp);
+          removeEventListener("mousedown", onMouseDown);
         };
       }
     }
-  }, [calculatePosition]);
+  }, []);
 
   return (
     <ScrollView
       scrollEventThrottle={16}
       onResponderGrant={() => {
-        console.log("onResponderGrant");
         paning.current = true;
       }}
       onResponderMove={() => {
-        console.log("onResponderMove");
         paning.current = true;
       }}
       onResponderRelease={() => {
-        console.log("onResponderRelease");
         paning.current = false;
       }}
       onScroll={onScroll}
@@ -181,7 +186,6 @@ export const PageView = forwardRef<
       horizontal
       style={style}
       onLayout={onLayout}
-      onScrollAnimationEnd={onScrollAnimationEnd}
     >
       {ready ? childs : null}
     </ScrollView>
