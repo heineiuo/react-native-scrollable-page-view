@@ -41,15 +41,15 @@ jobs:
       - name: Install Dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: |
-          npm ci
+          yarn
         env:
           CI: true
 
       - name: Build
         run: |
-          npm run build:commonjs
-          npm run build:module
-          npm run build:typescript
+          yarn build:commonjs
+          yarn build:module
+          yarn build:typescript
         env:
           CI: true
 
